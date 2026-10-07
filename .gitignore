@@ -1,0 +1,13 @@
+node_modules/
+*.log
+.DS_Store
+coverage/
+
+node_modules/
+dist-test/
+dist/
+__pycache__/
+*.pyc
+*.db
+.pytest_cache/
+*.tsbuildinfo

@@ -1,0 +1,45 @@
+{
+  "hosts": {
+    "edge": "keys/multi-edge.pub.ssh",
+    "relay": "keys/multi-relay.pub.ssh",
+    "prod": "keys/multi-prod.pub.ssh",
+    "test": "keys/multi-test.pub.ssh"
+  },
+  "identities": [
+    {
+      "privateKey": "keys/multi-admin.pem",
+      "comment": "demo-admin",
+      "routes": [
+        {
+          "hosts": [
+            "edge",
+            "relay",
+            "prod"
+          ],
+          "user": "deploy"
+        },
+        {
+          "hosts": [
+            "edge",
+            "relay",
+            "test"
+          ],
+          "user": "backup"
+        }
+      ]
+    },
+    {
+      "privateKey": "keys/multi-auditor.pem",
+      "comment": "demo-auditor",
+      "routes": [
+        {
+          "hosts": [
+            "edge",
+            "test"
+          ],
+          "user": "audit"
+        }
+      ]
+    }
+  ]
+}

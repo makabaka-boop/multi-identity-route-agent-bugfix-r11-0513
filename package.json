@@ -1,0 +1,17 @@
+{
+  "name": "restricted-ssh-agent-demo",
+  "version": "1.0.0",
+  "description": "Path-restricted SSH agent demo using Ed25519 and session-bind@openssh.com",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "pretest": "node scripts/generate-keys.mjs keys",
+    "start": "node src/server.mjs",
+    "test": "node --test",
+    "keys:generate": "node scripts/generate-keys.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

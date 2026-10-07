@@ -1,0 +1,31 @@
+services:
+  restricted-ssh-agent:
+    build:
+      context: .
+    image: restricted-ssh-agent-demo:latest
+    container_name: restricted-ssh-agent-demo
+    environment:
+      KEY_DIR: /keys
+      SSH_AUTH_SOCK: /run/agent/ssh-agent.sock
+      AUTHORIZED_USER: deploy
+      JUMP_HOSTNAME: bastion.example
+      TARGET_HOSTNAME: target.example
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - agent-run:/run/agent
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "import('node:net').then(({createConnection})=>createConnection(process.env.SSH_AUTH_SOCK).on('connect',socket=>socket.end(()=>process.exit(0))).on('error',()=>process.exit(1)))"
+      interval: 10s
+      timeout: 2s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  agent-run:
+    driver: local
