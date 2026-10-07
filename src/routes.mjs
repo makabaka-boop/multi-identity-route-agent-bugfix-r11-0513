@@ -1,25 +1,55 @@
-export function allowsPrefix(config,bindings) {
-  const keys=bindings.map(binding=>binding.host.blob.toString('binary'));
-  return bindings.length<=4 && new Set(keys).size===keys.length && bindings.every(binding=>config.hostByBlob.has(binding.host.blob.toString('binary')));
+import { timingSafeEqual } from "./wire.mjs";
+
+// A hop matches a route position only when the host is the route's host at
+// that position and the forwarding flag says whether the hop is intermediate
+// (forwarding) or the route's final hop (not forwarding).
+function hopMatches(binding, host, intermediate) {
+  return (
+    binding.forwarding === intermediate &&
+    timingSafeEqual(binding.host.blob, host.blob)
+  );
 }
 
-export function availableIdentities(config, bindings) {
-  return config.identities;
-}
-export function authorizedIdentity(config, bindings, keyBlob, user) {
-  if (
-    !config.users.has(user) ||
-    bindings.length < 2 ||
-    bindings.at(-1).forwarding
-  )
-    return null;
-  const identity = config.identities.find((item) =>
-    item.key.blob.equals(keyBlob),
+function matchesPrefix(route, bindings) {
+  if (bindings.length > route.hosts.length) return false;
+  return bindings.every((binding, index) =>
+    hopMatches(binding, route.hosts[index], index < route.hosts.length - 1),
   );
-  return identity &&
-    bindings.every((binding) =>
-      config.hostByBlob.has(binding.host.blob.toString("binary")),
-    )
-    ? identity
-    : null;
+}
+
+function matchesRoute(route, bindings) {
+  return (
+    bindings.length === route.hosts.length && matchesPrefix(route, bindings)
+  );
+}
+
+// A socket's bindings are acceptable only while they remain a prefix of at
+// least one allowed route of one identity. A shared prefix between routes
+// keeps every still-matching route open instead of locking one in early.
+export function allowsPrefix(config, bindings) {
+  return config.identities.some((identity) =>
+    identity.routes.some((route) => matchesPrefix(route, bindings)),
+  );
+}
+
+// Identities are listed only once the socket's own bindings fully match one
+// of the identity's own routes; incomplete or different paths list nothing.
+export function availableIdentities(config, bindings) {
+  return config.identities.filter((identity) =>
+    identity.routes.some((route) => matchesRoute(route, bindings)),
+  );
+}
+
+// A signature is authorized only for the identity named by the requested
+// key, only when the socket's bindings fully match one of that identity's
+// own routes, and only for the target user of that exact route.
+export function authorizedIdentity(config, bindings, keyBlob, user) {
+  const identity = config.identities.find((item) =>
+    timingSafeEqual(item.key.blob, keyBlob),
+  );
+  if (!identity) return null;
+  const granted = identity.routes.some(
+    (route) => route.user === user && matchesRoute(route, bindings),
+  );
+  return granted ? identity : null;
 }

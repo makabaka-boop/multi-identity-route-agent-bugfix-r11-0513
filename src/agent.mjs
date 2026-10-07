@@ -68,14 +68,16 @@ export class SocketState {
       return false;
     }
     if (this.config.identities) {
-      if (
-        this.destroyed ||
-        (this.bindings.length && !this.bindings.at(-1).forwarding)
-      )
+      if (this.destroyed) return false;
+      // A completed path (final, non-forwarding hop) cannot be extended.
+      if (this.bindings.length && !this.bindings.at(-1).forwarding)
         return false;
-      const binding = new Binding(host, Buffer.from(sessionId), forwarding);
-      this.bindings.push(binding);
-      if (!allowsPrefix(this.config, this.bindings)) return false;
+      const candidate = new Binding(host, Buffer.from(sessionId), forwarding);
+      // Validate the extended path before mutating: a rejected bind must
+      // keep the socket's previously accepted bindings intact.
+      if (!allowsPrefix(this.config, [...this.bindings, candidate]))
+        return false;
+      this.bindings.push(candidate);
       return true;
     }
     if (this.bindings.length === 1 && !this.bindings[0].forwarding)
