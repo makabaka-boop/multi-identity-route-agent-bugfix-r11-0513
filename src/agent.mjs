@@ -68,14 +68,18 @@ export class SocketState {
       return false;
     }
     if (this.config.identities) {
+      // A completed route ends in a non-forwarding hop; nothing may follow it.
       if (
         this.destroyed ||
         (this.bindings.length && !this.bindings.at(-1).forwarding)
       )
         return false;
       const binding = new Binding(host, Buffer.from(sessionId), forwarding);
+      // Validate the extended path before mutating so a rejected attempt
+      // leaves the previously bound hops untouched.
+      if (!allowsPrefix(this.config, [...this.bindings, binding]))
+        return false;
       this.bindings.push(binding);
-      if (!allowsPrefix(this.config, this.bindings)) return false;
       return true;
     }
     if (this.bindings.length === 1 && !this.bindings[0].forwarding)

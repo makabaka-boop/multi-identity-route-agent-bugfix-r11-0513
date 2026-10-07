@@ -9,7 +9,15 @@ const MAX_MESSAGE_SIZE = 256 * 1024;
 const SOCKET_PATH = process.env.SSH_AUTH_SOCK || "/run/agent/ssh-agent.sock";
 
 function start() {
-  const config = loadConfig();
+  // Invalid configuration (including an invalid policy file) rejects the
+  // whole startup before any socket is created.
+  let config;
+  try {
+    config = loadConfig();
+  } catch (error) {
+    console.error(`invalid configuration: ${error.message}`);
+    process.exit(1);
+  }
   const agent = new RestrictedAgent(config);
 
   mkdirSync(dirname(SOCKET_PATH), { recursive: true });

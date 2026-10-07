@@ -1,25 +1,43 @@
-export function allowsPrefix(config,bindings) {
-  const keys=bindings.map(binding=>binding.host.blob.toString('binary'));
-  return bindings.length<=4 && new Set(keys).size===keys.length && bindings.every(binding=>config.hostByBlob.has(binding.host.blob.toString('binary')));
+// Route matching for the multi-identity policy mode. A socket's bindings are
+// authorized only while they form an exact hop-by-hop prefix of at least one
+// configured route: intermediate hops must be marked forwarding and only the
+// route's final hop may be non-forwarding. Routes that share a prefix stay
+// open until a hop selects one of them.
+
+function routeAllows(route, bindings) {
+  if (bindings.length > route.hosts.length) return false;
+  return bindings.every((binding, index) => {
+    const finalHop = index === route.hosts.length - 1;
+    return (
+      binding.forwarding !== finalHop &&
+      binding.host.blob.equals(route.hosts[index].blob)
+    );
+  });
+}
+
+function completesRoute(route, bindings) {
+  return bindings.length === route.hosts.length && routeAllows(route, bindings);
+}
+
+export function allowsPrefix(config, bindings) {
+  return config.identities.some((identity) =>
+    identity.routes.some((route) => routeAllows(route, bindings)),
+  );
 }
 
 export function availableIdentities(config, bindings) {
-  return config.identities;
+  return config.identities.filter((identity) =>
+    identity.routes.some((route) => completesRoute(route, bindings)),
+  );
 }
+
 export function authorizedIdentity(config, bindings, keyBlob, user) {
-  if (
-    !config.users.has(user) ||
-    bindings.length < 2 ||
-    bindings.at(-1).forwarding
-  )
-    return null;
   const identity = config.identities.find((item) =>
     item.key.blob.equals(keyBlob),
   );
-  return identity &&
-    bindings.every((binding) =>
-      config.hostByBlob.has(binding.host.blob.toString("binary")),
-    )
-    ? identity
-    : null;
+  if (!identity) return null;
+  const authorized = identity.routes.some(
+    (route) => route.user === user && completesRoute(route, bindings),
+  );
+  return authorized ? identity : null;
 }
